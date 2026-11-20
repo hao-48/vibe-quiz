@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>課堂搶答</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <main>
+    <header><h1>課堂搶答</h1><span id="role"></span></header>
+    <p id="notice" role="status" aria-live="polite"></p>
+    <section id="lobby">
+      <h2>選擇學生組別</h2>
+      <div class="actions"><button data-group="A">加入 A 組</button><button data-group="B">加入 B 組</button></div>
+    </section>
+    <section id="import-panel" hidden>
+      <h2>匯入 Guided Notes</h2>
+      <form id="import-form">
+        <label id="book-field">試算表網址或 ID <input id="book" required></label>
+        <label id="sheet-field">工作表名稱 <input id="sheet" required></label>
+        <label id="fixture-field" hidden>合成範本
+          <select id="fixture"><option value="starter">範本一 · 2 題</option><option value="alternate">範本二 · 3 題</option></select>
+        </label>
+        <button>匯入題單</button>
+      </form>
+      <p><a href="/" target="_blank" rel="noopener">開啟學生入口</a></p>
+      <p id="count"></p><ol id="preview"></ol>
+    </section>
+    <section id="round-panel" hidden>
+      <div class="round-heading"><h2 id="question"></h2><span id="phase"></span></div>
+      <div class="actions" id="controls" hidden>
+        <button id="start">開始搶答</button><button id="end">結束並揭曉</button>
+        <button id="next">下一題</button><button id="write" class="secondary">寫回 Guided Notes</button>
+      </div>
+      <p id="write-status"></p>
+      <form id="answer-form" hidden>
+        <label>本組答案 <textarea id="answer" rows="3" maxlength="10000" required></textarea></label>
+        <button>送出答案</button>
+      </form>
+      <p id="receipt" role="status"></p>
+      <p id="result" role="status"></p>
+      <ul id="answers"></ul>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "sheet": "課堂筆記",
+  "columns": 10,
+  "rows": [
+    ["備註", "保留此格"],
+    [],
+    [null, "{{Q:甲}}"],
+    [null, "{{Q:乙}}"],
+    [],
+    [null, "{{Q:丙}}", null, null, null, "{{A:乙}}"],
+    [null, null, null, "{{A:丙}}"],
+    [],
+    [null, null, null, null, "{{A:甲}}"]
+  ]
+}
