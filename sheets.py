@@ -125,15 +125,18 @@ def write_answers(store, source, preview, winners):
         return "所有勝出答案已存在，無須重複寫回。"
     try:
         store.write(source, pending)
+    except QuizError as error:
+        if error.status in (403, 404):
+            raise
+        raise QuizError("寫回結果待確認。請恢復連線後重試，系統會先讀回檢查。", 503) from None
+    try:
         verified_sheet = store.read(source)
         verified_targets = locate(verified_sheet, winners)
         if verified_targets.keys() != preview.keys() or any(
             verified_sheet.values.get(verified_targets[key]) != answer for key, answer in winners.items()
         ):
             raise QuizError("寫回核對有異常。", 503)
-    except QuizError as error:
-        if error.status == 403:
-            raise
+    except QuizError:
         raise QuizError("寫回結果待確認。請恢復連線後重試，系統會先讀回檢查。", 503) from None
     return f"已確認 {len(winners)} 題，寫入 {len(pending)} 格。"
 
@@ -173,11 +176,13 @@ class GoogleSheets:
         if service is None:
             try:
                 import google.auth
+                import httplib2
+                from google_auth_httplib2 import AuthorizedHttp
                 from googleapiclient.discovery import build
 
                 credentials, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/spreadsheets"])
-                service = build("sheets", "v4", credentials=credentials, cache_discovery=False)
-                service._http.timeout = 15
+                transport = AuthorizedHttp(credentials, http=httplib2.Http(timeout=15))
+                service = build("sheets", "v4", http=transport, cache_discovery=False)
             except ImportError:
                 raise QuizError("請先安裝 Google Sheets 模式所需套件。") from None
             except Exception:
@@ -227,7 +232,7 @@ class GoogleSheets:
         title = "'" + props["title"].replace("'", "''") + "'"
         data = self.execute(self.api.get(
             spreadsheetId=book, ranges=[title],
-            fields="sheets(properties(sheetId),data(startRow,startColumn,rowData(values(userEnteredValue))))",
+            fields="sheets(properties(sheetId),data(startRow,startColumn,rowData(values(userEnteredValue,effectiveValue))))",
         ))
         grid = next((item for item in data.get("sheets", [])
                      if item["properties"]["sheetId"] == sheet_id), None)
@@ -240,6 +245,8 @@ class GoogleSheets:
                     entered = value.get("userEnteredValue")
                     if entered:
                         sheet.values[Cell(row, col)] = entered.get("stringValue", entered)
+                    elif value.get("effectiveValue"):
+                        sheet.values[Cell(row, col)] = {"effectiveValue": value["effectiveValue"]}
         named = {item["namedRangeId"]: item["range"] for item in meta.get("namedRanges", [])}
         for protection in selected.get("protectedRanges", []):
             if not protection.get("warningOnly"):

@@ -19,6 +19,7 @@ class Server(ThreadingHTTPServer):
         self.quiz = Quiz(sheets)
         self.teacher_entry = secrets.token_urlsafe(32)
         self.sessions = {}
+        self.student_numbers = {"A": 0, "B": 0}
         self.running = True
 
     @property
@@ -118,6 +119,9 @@ class Handler(BaseHTTPRequestHandler):
                 result = {"session": token, "role": role}
                 if role == "teacher":
                     result["mode"] = quiz.sheets.mode
+                else:
+                    self.server.student_numbers[role] += 1
+                    result["number"] = self.server.student_numbers[role]
                 return result
             role = self.role(self.headers.get("Authorization", "").removeprefix("Bearer "))
             if path == "/api/state":

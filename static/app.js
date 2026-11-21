@@ -38,7 +38,10 @@ async function run(callback) {
 function enter(data) {
   session = data;
   sessionStorage.setItem("quiz-session", JSON.stringify(data));
-  el("role").textContent = data.role === "teacher" ? "老師" : data.role + " 組";
+  const roleLabel = data.role === "teacher" ? "老師" : data.role + " 組";
+  el("role").textContent = roleLabel;
+  const tabLabel = data.number ? roleLabel + " " + data.number + " 號" : roleLabel;
+  document.title = tabLabel + "｜課堂搶答";
   el("lobby").hidden = true;
   const teacher = data.role === "teacher";
   el("import-panel").hidden = !teacher;

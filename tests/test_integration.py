@@ -1,6 +1,8 @@
 import json
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
 from http.client import HTTPConnection
+from io import StringIO
 from threading import Thread
 from unittest.mock import patch
 from urllib.parse import urlencode
@@ -149,3 +151,14 @@ class IntegrationTests(unittest.TestCase):
                         self.assertIn("加入 A 組", content)
                 finally:
                     connection.close()
+
+    def test_failed_requests_do_not_log_session_or_submission_data(self):
+        output = StringIO()
+        with redirect_stdout(output), redirect_stderr(output):
+            stream = self.event_stream(self.a)
+            self.assertIsNone(self.state_event(stream)["question"])
+            status, result = self.post("submit", {"answer": "模擬敏感作答"}, self.a)
+        self.assertEqual(status, 409)
+        for sample in (self.a, self.server.teacher_entry, "模擬敏感作答"):
+            self.assertNotIn(sample, output.getvalue())
+            self.assertNotIn(sample, str(result))

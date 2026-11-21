@@ -1,6 +1,6 @@
 import unittest
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from sheets import Cell, GoogleSheets, MemorySheets, QuizError, Sheet, locate, read_questions, write_answers
 
@@ -111,6 +111,15 @@ class SheetsTests(unittest.TestCase):
         self.assertIn("無須重複", write_answers(self.store, self.source, self.preview, winners))
         self.assertEqual(self.sheet.values[self.preview["1"]], winners["1"])
 
+    def test_write_followed_by_permission_loss_remains_unconfirmed(self):
+        initial = self.store.read(self.source)
+        with patch.object(self.store, "read", side_effect=[
+            initial, QuizError("模擬讀回授權失效", 403)
+        ]):
+            with self.assertRaisesRegex(QuizError, "待確認"):
+                write_answers(self.store, self.source, self.preview, {"1": "甲"})
+        self.assertIn("無須重複", write_answers(self.store, self.source, self.preview, {"1": "甲"}))
+
 
 class GoogleTests(unittest.TestCase):
     def setUp(self):
@@ -152,3 +161,44 @@ class GoogleTests(unittest.TestCase):
         self.assertEqual(sheet.values[Cell(2, 1)], {"formulaValue": "=1+1"})
         self.assertFalse(sheet.writable(Cell(8, 0)))
         self.assertEqual(self.api.get.call_args.kwargs["ranges"], ["'老師的''筆記'"])
+
+    def test_google_batch_stops_on_formula_output_without_entered_value(self):
+        meta = {"sheets": [{"properties": {
+            "sheetId": 37, "title": "筆記", "gridProperties": {"rowCount": 20, "columnCount": 8}
+        }}]}
+        rows = [
+            {"values": [{"userEnteredValue": {"stringValue": "{{Q:1}}"}},
+                        {"userEnteredValue": {"stringValue": "{{A:1}}"}}]},
+            {"values": [{"userEnteredValue": {"stringValue": "{{Q:2}}"}},
+                        {"userEnteredValue": {"stringValue": "{{A:2}}"}},
+                        {"effectiveValue": {"stringValue": "公式展開結果"}}]},
+        ]
+        grid = {"sheets": [{"properties": {"sheetId": 37}, "data": [{"rowData": rows}]}]}
+        self.api.get.return_value.execute.side_effect = [meta, grid]
+        preview = {"1": Cell(0, 2), "2": Cell(1, 2)}
+        with self.assertRaisesRegex(QuizError, "2（C2）.*整批未寫回"):
+            write_answers(self.store, ("synthetic-id", 37), preview, {"1": "甲", "2": "乙"})
+        self.api.batchUpdate.assert_not_called()
+
+    def test_google_relocates_and_verifies_write_on_original_tab(self):
+        meta = {"sheets": [{"properties": {
+            "sheetId": 37, "title": "移位後筆記", "gridProperties": {"rowCount": 20, "columnCount": 8}
+        }}]}
+
+        def grid(answer=None):
+            return {"sheets": [{"properties": {"sheetId": 37}, "data": [
+                {"rowData": [{"values": [{"userEnteredValue": {"stringValue": "{{Q:1}}"}}]}]},
+                {"startRow": 5, "startColumn": 3, "rowData": [{"values": [
+                    {"userEnteredValue": {"stringValue": "{{A:1}}"}},
+                    {"userEnteredValue": {"stringValue": answer}} if answer is not None else {},
+                ]}]},
+            ]}]}
+
+        self.api.get.return_value.execute.side_effect = [meta, grid(), meta, grid("=示例")]
+        self.assertIn("寫入 1 格", write_answers(
+            self.store, ("synthetic-id", 37), {"1": Cell(1, 2)}, {"1": "=示例"}
+        ))
+        call = self.api.batchUpdate.call_args.kwargs
+        self.assertEqual(call["spreadsheetId"], "synthetic-id")
+        update, = call["body"]["requests"]
+        self.assertEqual(update["updateCells"]["start"], {"sheetId": 37, "rowIndex": 5, "columnIndex": 4})
