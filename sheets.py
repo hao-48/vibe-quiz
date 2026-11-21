@@ -43,7 +43,7 @@ class Sheet:
 MARKER = re.compile(r"\{\{([QA]):([^{}\s]+)\}\}")
 
 
-def locate(sheet, known_answers=None):
+def _locate(sheet, known_answers=None):
     known_answers = known_answers or {}
     questions, blanks, issues = {}, {}, []
     question_rows = set()
@@ -84,7 +84,23 @@ def locate(sheet, known_answers=None):
         targets[key] = cell
     if issues:
         raise QuizError("；".join(issues), 409)
-    return {key: targets[key] for key in questions}
+    return questions, {key: targets[key] for key in questions}
+
+
+def locate(sheet, known_answers=None):
+    return _locate(sheet, known_answers)[1]
+
+
+def read_questions(sheet):
+    questions, targets = _locate(sheet)
+    answer_cells = set(targets.values())
+    prompts = {}
+    for key, marker in questions.items():
+        cell = Cell(marker.row, marker.col + 1)
+        value = sheet.values.get(cell)
+        if cell not in answer_cells and isinstance(value, str) and not MARKER.fullmatch(value):
+            prompts[key] = value.strip()
+    return targets, prompts
 
 
 def write_answers(store, source, preview, winners):

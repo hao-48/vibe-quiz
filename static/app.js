@@ -78,6 +78,7 @@ function fillList(node, entries) {
 function render() {
   const phase = state?.phase ?? "等待中";
   el("question").textContent = state?.question ? "題號 " + state.question : "等待老師匯入題單";
+  el("prompt").textContent = state?.prompt ?? "";
   el("phase").textContent = phase;
   el("phase").dataset.open = phase === "搶答中";
   const ready = events?.readyState === EventSource.OPEN && !busy;
@@ -96,7 +97,8 @@ function render() {
   el("write-status").textContent = state?.write_status ?? "";
   const questions = state?.questions ?? [];
   el("count").textContent = questions.length ? "共 " + questions.length + " 題" : "";
-  fillList(el("preview"), questions.map(q => "題號 " + q.key + " · 填空格 " + q.cell));
+  fillList(el("preview"), questions.map(q =>
+    "題號 " + q.key + " · 填空格 " + q.cell + (q.prompt ? "\n" + q.prompt : "")));
 }
 
 for (const button of document.querySelectorAll("[data-group]")) {

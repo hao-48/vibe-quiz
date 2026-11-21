@@ -79,6 +79,9 @@ class IntegrationTests(unittest.TestCase):
                 self.assertEqual((status, result["count"]), (200, len(keys)))
                 waiting = [self.state_event(stream) for stream in streams]
                 self.assertEqual([row["key"] for row in waiting[0]["questions"]], keys)
+                prompt = "電腦中負責執行程式指令的核心元件是什麼？" if book == "starter" else ""
+                self.assertTrue(all(state["prompt"] == prompt for state in waiting))
+                self.assertEqual(waiting[0]["questions"][0]["prompt"], prompt)
                 round_id = waiting[0]["round"]
                 self.assertEqual(self.post("start", {"round": round_id}, self.a)[0], 403)
                 submission = {"round": round_id, "submission": "one", "answer": "=示範"}
@@ -103,6 +106,7 @@ class IntegrationTests(unittest.TestCase):
                 self.control("next", round_id)
                 waiting = [self.state_event(stream) for stream in streams]
                 self.assertEqual(waiting[2]["question"], keys[1])
+                self.assertEqual(waiting[2]["prompt"], "")
                 self.assertEqual(self.post("submit", submission, self.a)[0], 409)
                 self.control("start", waiting[0]["round"])
                 for stream in streams:

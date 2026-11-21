@@ -29,4 +29,4 @@ button:disabled { background: #eceeea; color: #4e5853; cursor: default; }
 a { color: #245744; }
 #notice { color: #852e24; }
 #result { font-size: 1.2rem; font-weight: 650; }
-#result, #receipt, li { overflow-wrap: anywhere; white-space: pre-wrap; }
+#prompt, #result, #receipt, li { overflow-wrap: anywhere; white-space: pre-wrap; }

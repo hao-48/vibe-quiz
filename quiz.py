@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from threading import Condition
 
-from sheets import QuizError, locate, write_answers
+from sheets import QuizError, read_questions, write_answers
 
 
 @dataclass
@@ -13,6 +13,7 @@ class Receipt:
 @dataclass
 class Round:
     key: str
+    prompt: str = ""
     phase: str = "等待中"
     receipts: dict = field(default_factory=dict)
 
@@ -44,6 +45,7 @@ class Quiz:
         current = self.current
         state = {
             "question": current.key if current else None,
+            "prompt": current.prompt if current else "",
             "phase": current.phase if current else "等待中",
             "round": self.round_id,
         }
@@ -51,7 +53,8 @@ class Quiz:
             state["result"] = current.result()
         if role == "teacher":
             state.update(
-                questions=[{"key": key, "cell": cell.label()} for key, cell in self.preview.items()],
+                questions=[{"key": r.key, "prompt": r.prompt, "cell": self.preview[r.key].label()}
+                           for r in self.rounds],
                 can_next=bool(current and current.phase == "已結束" and self.index + 1 < len(self.rounds)),
                 can_write=any(r.phase == "已結束" and r.receipts for r in self.rounds),
                 write_status=self.write_status,
@@ -69,7 +72,7 @@ class Quiz:
                 raise QuizError("請先結束目前的搶答。", 409)
             try:
                 source = self.sheets.resolve(body.get("book"), body.get("sheet"))
-                preview = locate(self.sheets.read(source))
+                preview, prompts = read_questions(self.sheets.read(source))
             except QuizError:
                 # An invalid import must never leave a startable preview for that source.
                 self.source = None
@@ -80,7 +83,7 @@ class Quiz:
                 self.write_status = ""
                 raise
             self.source, self.preview = source, preview
-            self.rounds = [Round(key) for key in preview]
+            self.rounds = [Round(key, prompts.get(key, "")) for key in preview]
             self.index = 0
             self.generation += 1
             self.write_status = ""

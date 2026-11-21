@@ -2,7 +2,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-from sheets import Cell, GoogleSheets, MemorySheets, QuizError, Sheet, locate, write_answers
+from sheets import Cell, GoogleSheets, MemorySheets, QuizError, Sheet, locate, read_questions, write_answers
 
 
 class SheetsTests(unittest.TestCase):
@@ -18,6 +18,15 @@ class SheetsTests(unittest.TestCase):
         self.assertEqual(list(self.preview), ["1", "2"])
         self.assertEqual(list(alternate), ["甲", "乙", "丙"])
         self.assertNotEqual(set(self.preview.values()), set(alternate.values()))
+
+    def test_prompt_never_uses_an_answer_cell_or_marker(self):
+        sheet = Sheet(4, 6, {
+            Cell(0, 0): "{{Q:1}}", Cell(0, 1): "{{A:1}}",
+            Cell(1, 1): "{{A:2}}", Cell(1, 2): "填空原文",
+            Cell(1, 3): "{{Q:2}}", Cell(1, 4): "  題幹文字  ",
+        })
+        _, prompts = read_questions(sheet)
+        self.assertEqual(prompts, {"2": "題幹文字"})
 
     def test_readme_template_recipe_uses_question_row_order(self):
         sheet = Sheet(10, 12, {
